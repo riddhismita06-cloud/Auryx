@@ -9,7 +9,7 @@ setServers(['8.8.8.8', '8.8.4.4']);
 dotenv.config({ path: path.resolve(process.cwd(), 'server/.env') });
 dotenv.config();
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 
 async function startAppServer() {
   await connectDB();
