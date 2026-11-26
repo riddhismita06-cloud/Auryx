@@ -1,0 +1,72 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-serif: 'Newsreader', Georgia, serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+    --pw-canvas: #FAF8F5;
+    --pw-surface: #FFFFFF;
+    --pw-surface-muted: #EFF5F0;
+    --pw-surface-stone: #EAE4D9;
+    --pw-border: rgba(21, 42, 32, 0.09);
+    --pw-border-strong: #D8CEBC;
+    --pw-primary: #152A20;
+    --pw-primary-hover: #224A38;
+    --pw-secondary: #C5A869;
+    --pw-tertiary: #224A38;
+    --pw-text: #181E1B;
+    --pw-text-muted: #424844;
+    --pw-text-subtle: #69706B;
+  }
+
+  .dark {
+    --pw-canvas: #0B1410;
+    --pw-surface: #101C16;
+    --pw-surface-muted: #15241C;
+    --pw-surface-stone: #18221D;
+    --pw-border: rgba(255, 255, 255, 0.08);
+    --pw-border-strong: rgba(197, 168, 105, 0.25);
+    --pw-primary: #C5A869;
+    --pw-primary-hover: #D8BF84;
+    --pw-secondary: #8BA393;
+    --pw-tertiary: #D8BF84;
+    --pw-text: #F4F6F2;
+    --pw-text-muted: #D0C5B5;
+    --pw-text-subtle: #8BA393;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--pw-canvas);
+    color: var(--pw-text);
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+}
+
+.font-editorial {
+  font-family: var(--font-serif);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.shadow-heritage {
+  box-shadow: 0 8px 32px -4px rgba(24, 30, 27, 0.04), 0 2px 12px -2px rgba(197, 168, 105, 0.06);
+}
+
+.dark .shadow-heritage {
+  box-shadow: 0 20px 48px -12px rgba(3, 7, 5, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px);
+}
+
+.dark .glass-panel {
+  background: rgba(21, 36, 28, 0.78);
+  backdrop-filter: blur(20px);
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Auryx",
+  "description": "Your Money. Your Intelligence. An intelligent personal financial companion for college students and young adults in India.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
