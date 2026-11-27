@@ -169,6 +169,8 @@ function AuryxShell() {
 
             {activePage === 'insights' && (
               <AIInsightsPage
+                key={user.id}
+                userId={user.id}
                 transactions={state.transactions}
                 monthlyBudget={state.monthlyBudget}
                 categoryBudgets={state.categoryBudgets}

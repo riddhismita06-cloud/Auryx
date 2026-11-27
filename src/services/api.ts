@@ -1,3 +1,4 @@
+
 import type {
   AuthUser,
   BudgetRecord,
@@ -195,9 +196,12 @@ export const goalsApi = {
 };
 
 export const aiApi = {
-  chat: (message: string) =>
+  chat: (
+    message: string,
+    history: { role: 'user' | 'assistant'; content: string }[] = []
+  ) =>
     request<{ answer: string }>('/api/ai/chat', {
       method: 'POST',
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, history }),
     }),
 };

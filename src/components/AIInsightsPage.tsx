@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { aiApi } from '../services/api';
 import {
   Send,
@@ -29,6 +31,7 @@ interface AIInsightsPageProps {
   monthlyBudget: number;
   categoryBudgets: CategoryBudget[];
   savingsGoals: SavingsGoal[];
+  userId: string;
 }
 
 interface ChatMessage {
@@ -49,6 +52,7 @@ export const AIInsightsPage: React.FC<AIInsightsPageProps> = ({
   monthlyBudget,
   categoryBudgets,
   savingsGoals,
+  userId,
 }) => {
   const [coachTrack, setCoachTrack] = useState<'dining' | 'upi' | 'savings'>('dining');
 
@@ -60,13 +64,41 @@ export const AIInsightsPage: React.FC<AIInsightsPageProps> = ({
   // Ask Auryx Chat state
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
+  const chatStorageKey = `auryx_chat_history_${userId}`;
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem(chatStorageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved) as ChatMessage[];
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (error) {
+      console.warn('Could not restore Auryx chat history:', error);
+    }
+    return [{
       id: 'msg-welcome',
       sender: 'assistant',
       text: 'Welcome to Auryx Intelligence — Your Money. Your Intelligence. I have reviewed your monthly ledger, category ceilings, and active savings goals. Ask me about any category spend, overspending risks, or a planned ₹ purchase.',
-    },
-  ]);
+    }];
+  });
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(chatStorageKey, JSON.stringify(messages));
+    } catch (error) {
+      console.warn('Could not save Auryx chat history:', error);
+    }
+  }, [chatStorageKey, messages]);
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'end',
+      });
+    }
+  }, [messages, isChatLoading]);
 
   const insights = useMemo(
     () =>
@@ -144,7 +176,7 @@ export const AIInsightsPage: React.FC<AIInsightsPageProps> = ({
     return {
       title: 'Semester Savings Accelerator',
       summary: topGoal
-        ? `"${topGoal.title}" needs ${formatINR(Math.max(0, topGoal.targetAmount - topGoal.savedAmount))} more. With ${formatINR(Math.max(0, remaining))} left in this month's budget, a structured sweep keeps goals effortless.`
+        ? `"${topGoal.title}" needs ${formatINR(Math.max(0, topGoal.targetAmount - ((topGoal as unknown as { savedAmount?: number; currentAmount?: number }).savedAmount ?? (topGoal as unknown as { currentAmount?: number }).currentAmount ?? 0)))} more. With ${formatINR(Math.max(0, remaining))} left in this month's budget, a structured sweep keeps goals effortless.`
         : `You currently retain ${formatINR(Math.max(0, remaining))} in monthly headroom.`,
       steps: [
         `Sweep ${formatINR(Math.max(500, Math.round(Math.max(0, remaining) * 0.35)))} on the 25th of each month before discretionary end-of-month spending.`,
@@ -157,40 +189,29 @@ export const AIInsightsPage: React.FC<AIInsightsPageProps> = ({
   
 const sendChatMessage = async (textToSend: string) => {
   const trimmed = textToSend.trim();
+  if (!trimmed || isChatLoading || trimmed.length > 2000) return;
 
-  if (!trimmed || isChatLoading) return;
+  const history = messages
+    .filter((msg) => msg.id !== 'msg-welcome' && !msg.id.startsWith('e-'))
+    .slice(-12)
+    .map((msg) => ({
+      role: msg.sender as 'user' | 'assistant',
+      content: msg.text,
+    }));
 
-  setMessages((prev) => [
-    ...prev,
-    { id: `u-${Date.now()}`, sender: 'user', text: trimmed },
-  ]);
-
+  setMessages((prev) => [...prev, { id: `u-${Date.now()}`, sender: 'user', text: trimmed }]);
   setChatInput('');
   setIsChatLoading(true);
 
   try {
-    const response = await aiApi.chat(trimmed);
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `a-${Date.now()}`,
-        sender: 'assistant',
-        text: response.answer,
-      },
-    ]);
+    const response = await aiApi.chat(trimmed, history);
+    setMessages((prev) => [...prev, { id: `a-${Date.now()}`, sender: 'assistant', text: response.answer }]);
   } catch (error) {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `e-${Date.now()}`,
-        sender: 'assistant',
-        text:
-          error instanceof Error
-            ? error.message
-            : 'Unable to connect to Auryx AI. Please try again.',
-      },
-    ]);
+    setMessages((prev) => [...prev, {
+      id: `e-${Date.now()}`,
+      sender: 'assistant',
+      text: error instanceof Error ? error.message : 'Unable to connect to Auryx AI. Please try again.',
+    }]);
   } finally {
     setIsChatLoading(false);
   }
@@ -422,7 +443,7 @@ const sendChatMessage = async (textToSend: string) => {
             </h2>
           </div>
           <span className="text-xs text-[#69706B] dark:text-[#8BA393]">
-            Grounded in your live ledger · Local preview mode
+            Grounded in your live ledger · AI connected
           </span>
         </div>
 
@@ -433,6 +454,7 @@ const sendChatMessage = async (textToSend: string) => {
               key={prompt}
               type="button"
               onClick={() => sendChatMessage(prompt)}
+              disabled={isChatLoading}
               className="px-3 py-1.5 rounded-lg bg-[#EFF5F0] dark:bg-[#15241C] text-xs font-medium text-[#224A38] dark:text-[#D0C5B5] border border-[#152A20]/8 dark:border-white/10 hover:border-[#C5A869] transition-colors text-left"
             >
               {prompt}
@@ -454,10 +476,24 @@ const sendChatMessage = async (textToSend: string) => {
                     : 'bg-[#FAF8F5] dark:bg-[#15241C] text-[#181E1B] dark:text-[#EDE8DE] border border-[#152A20]/10 dark:border-white/10'
                 }`}
               >
-                {msg.text}
+                {msg.sender === 'user' ? (
+                  <div className="whitespace-pre-wrap break-words">{msg.text}</div>
+                ) : (
+                  <div className="break-words [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2 [&_li]:mb-1 [&_strong]:font-bold [&_h1]:font-editorial [&_h2]:font-editorial [&_h3]:font-editorial [&_blockquote]:border-l-2 [&_blockquote]:border-[#C5A869] [&_blockquote]:pl-3 [&_blockquote]:italic [&_code]:bg-black/5 [&_code]:dark:bg-white/10 [&_code]:px-1 [&_code]:rounded [&_pre]:overflow-x-auto [&_pre]:p-3 [&_pre]:rounded-lg [&_table]:border-collapse [&_th]:border [&_td]:border [&_th]:px-2 [&_td]:px-2 [&_th]:py-1 [&_td]:py-1">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                  </div>
+                )}
               </div>
             </div>
           ))}
+          {isChatLoading && (
+            <div className="flex justify-start">
+              <div className="rounded-lg px-4 py-3 text-sm bg-[#FAF8F5] dark:bg-[#15241C] text-[#69706B] dark:text-[#8BA393] border border-[#152A20]/10 dark:border-white/10 animate-pulse">
+                Auryx is thinking...
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Input Form */}
@@ -472,13 +508,14 @@ const sendChatMessage = async (textToSend: string) => {
             type="text"
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
+            maxLength={2000}
             placeholder="Ask about food spend, overspending, savings goals, or affordability..."
             aria-label="Ask Auryx a question"
             className="flex-1 px-4 py-2.5 rounded-lg bg-[#FAF8F5] dark:bg-[#15241C] border border-[#D8CEBC] dark:border-white/12 text-sm text-[#181E1B] dark:text-[#F4F6F2] focus:outline-none focus:border-[#C5A869]"
           />
           <button
             type="submit"
-            disabled={!chatInput.trim()}
+            disabled={!chatInput.trim() || isChatLoading}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#152A20] hover:bg-[#224A38] disabled:opacity-45 text-white dark:bg-[#C5A869] dark:hover:bg-[#D8BF84] dark:text-[#0B1410] text-sm font-semibold transition-colors whitespace-nowrap shrink-0"
           >
             <Send className="w-4 h-4" />

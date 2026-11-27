@@ -67,11 +67,22 @@ export const AuthPage: React.FC<AuthPageProps> = ({ theme, onToggleTheme }) => {
         });
       }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Authentication failed. Please check your credentials and try again.'
-      );
+      const errorMessage = err instanceof Error ? err.message : '';
+
+      if (
+        /mongo|database|connection|network|fetch failed|server unavailable/i.test(
+          errorMessage
+        )
+      ) {
+        setError(
+          "We're unable to process your request right now. Please try again later."
+        );
+      } else {
+        setError(
+          errorMessage ||
+            'Authentication failed. Please check your credentials and try again.'
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -121,7 +132,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ theme, onToggleTheme }) => {
               <div className="flex items-start gap-2.5">
                 <ShieldCheck className="w-4 h-4 text-[#C5A869] shrink-0 mt-0.5" />
                 <span>
-                  Every account has its own private ledger, budgets, and savings goals stored securely in MongoDB Atlas.
+                  Every account has its own private ledger, budgets, and savings goals stored securely.
                 </span>
               </div>
               <p className="text-[#C5A869]">
